@@ -3,7 +3,7 @@ from fastapi.staticfiles import StaticFiles
 from typing import List
 
 app = FastAPI()
-#@app.get("/")
+
 # Keep track of connected clients
 class ConnectionManager:
     def __init__(self):
