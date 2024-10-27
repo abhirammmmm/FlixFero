@@ -11,9 +11,9 @@ let ws;
 let file;
 
 // Open WebSocket connection for signaling
-// Use the exact WebSocket endpoint
-ws = new WebSocket(`ws://${window.location.host}/ws`);
-
+// Dynamically determine the WebSocket protocol (ws or wss)
+const wsProtocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
+ws = new WebSocket(`${wsProtocol}://${window.location.host}/ws`);
 
 ws.onmessage = async (event) => {
     const message = JSON.parse(event.data);
@@ -40,7 +40,14 @@ sendBtn.addEventListener('click', () => {
 });
 
 async function createConnection() {
-    localConnection = new RTCPeerConnection();
+    // Include STUN server configuration
+    const configuration = {
+        iceServers: [
+            { urls: 'stun:stun.l.google.com:19302' } // Public STUN server
+        ]
+    };
+    
+    localConnection = new RTCPeerConnection(configuration);
 
     // Create data channel for sending file
     sendChannel = localConnection.createDataChannel('sendDataChannel');
@@ -68,7 +75,13 @@ async function createConnection() {
 }
 
 async function handleOffer(offer) {
-    localConnection = new RTCPeerConnection();
+    const configuration = {
+        iceServers: [
+            { urls: 'stun:stun.l.google.com:19302' }
+        ]
+    };
+    
+    localConnection = new RTCPeerConnection(configuration);
 
     localConnection.ondatachannel = (event) => {
         receiveChannel = event.channel;
@@ -114,18 +127,25 @@ function sendFile() {
     fileReader.addEventListener('error', error => console.error('Error reading file:', error));
     fileReader.addEventListener('abort', event => console.log('File reading aborted:', event));
     fileReader.addEventListener('load', e => {
+        // Send the file chunk
         sendChannel.send(e.target.result);
         offset += e.target.result.byteLength;
+
+        // Continue reading the next chunk if there is more to send
         if (offset < file.size) {
             readSlice(offset);
         } else {
+            // Close the data channel after sending the file
             sendChannel.close();
         }
     });
 
+    // Function to read a chunk of the file
     const readSlice = o => {
         const slice = file.slice(offset, o + chunkSize);
         fileReader.readAsArrayBuffer(slice);
     };
+    
+    // Start reading the file from the beginning
     readSlice(0);
 }
